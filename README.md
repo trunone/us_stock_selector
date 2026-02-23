@@ -1,6 +1,6 @@
 # US Stock Selection Algorithm
 
-This project implements an algorithm to select potential US stocks to invest in from the S&P 500 index. It uses Python and standard data analysis libraries to fetch market data, calculate technical indicators, and filter stocks based on a specific strategy.
+This project implements an algorithm to select potential US stocks to invest in from the **entire US stock market** (NASDAQ, NYSE, AMEX). It uses Python and standard data analysis libraries to fetch market data, calculate technical indicators, and filter stocks based on a specific strategy.
 
 ## Strategy
 
@@ -11,18 +11,24 @@ The algorithm screens stocks based on the following criteria:
 
 ## Files
 
-*   `stock_analysis.ipynb`: A Jupyter Notebook containing the code and explanation. This is the recommended way to explore the project.
+*   `stock_analysis.ipynb`: A Jupyter Notebook containing the code and explanation. **Recommended for Google Colab.**
 *   `stock_analysis.py`: A Python script version of the algorithm for running in a terminal or local environment.
 *   `requirements.txt`: List of dependencies.
+
+## Key Features
+
+*   **Comprehensive Ticker List**: Fetches over 10,000+ tickers from NASDAQ Trader, covering all major US exchanges.
+*   **Batch Processing**: Efficiently downloads market data in chunks to handle large datasets without overwhelming API limits or memory.
+*   **Robust Error Handling**: Skips invalid tickers or failed downloads gracefully.
 
 ## How to Run in Google Colab
 
 1.  Download `stock_analysis.ipynb` to your computer.
 2.  Go to [Google Colab](https://colab.research.google.com/).
 3.  Click "File" -> "Upload notebook".
-4.  Select the `stock_analysis.ipynb` file you downloaded.
-5.  Once opened, run the first cell to install the necessary libraries (`yfinance`, etc.).
-6.  Run the subsequent cells to execute the analysis.
+4.  Select the `stock_analysis.ipynb` file.
+5.  Run the cells sequentially.
+    *   *Note*: The script is set to process a subset (first 500 tickers) by default for demonstration speed. Uncomment the line `tickers_to_process = all_tickers` in the "Run Analysis" cell to scan the entire market (this may take 10-20 minutes).
 
 ## How to Run Locally
 
@@ -35,7 +41,8 @@ The algorithm screens stocks based on the following criteria:
     ```bash
     python stock_analysis.py
     ```
-    This will print the selected stocks to the console and save a chart as `top_stock_chart.png`.
+    *   This will print the selected stocks to the console and save a chart of the top candidate as `top_stock_chart.png`.
+    *   To scan the full market, edit `stock_analysis.py` and change `LIMIT = 500` to a higher number or comment it out.
 
 ## Disclaimer
 
