@@ -5,6 +5,38 @@ import requests
 import io
 import os
 import sys
+from textblob import TextBlob
+
+def get_news_sentiment(ticker):
+    """Fetches news and calculates average sentiment polarity."""
+    try:
+        stock = yf.Ticker(ticker)
+        news = stock.news
+        if not news:
+            return 0, 0
+
+        sentiments = []
+        for item in news:
+            title = item.get('title')
+            if not title:
+                # Try nested content structure which yfinance sometimes returns
+                content = item.get('content', {})
+                title = content.get('title')
+
+            if title:
+                blob = TextBlob(title)
+                sentiments.append(blob.sentiment.polarity)
+
+        if not sentiments:
+            return 0, 0
+
+        avg_sentiment = sum(sentiments) / len(sentiments)
+
+        return avg_sentiment, len(sentiments)
+
+    except Exception as e:
+        print(f"Error fetching news for {ticker}: {e}")
+        return 0, 0
 
 def get_all_tickers():
     """Fetches a comprehensive list of US tickers from NASDAQ Trader."""
@@ -165,12 +197,23 @@ def main():
 
     print("\nAnalysis complete.")
 
+    if selected_stocks:
+        print(f"Found {len(selected_stocks)} technical candidates. Analyzing news sentiment...")
+        for stock in selected_stocks:
+            ticker = stock['Ticker']
+            sentiment, count = get_news_sentiment(ticker)
+            stock['News Sentiment'] = sentiment
+            stock['News Count'] = count
+
     results_df = pd.DataFrame(selected_stocks)
 
     if not results_df.empty:
         print("\nPotential Investment Candidates (Sorted by RSI):")
         # Format the output
-        print(results_df.sort_values(by='RSI').round(2).to_string(index=False))
+        columns_to_show = ['Ticker', 'Close', 'SMA_50', 'SMA_200', 'RSI', 'News Sentiment', 'News Count']
+        # Reorder columns if they exist, otherwise fallback to default behavior (though they should exist now)
+        cols = [c for c in columns_to_show if c in results_df.columns]
+        print(results_df[cols].sort_values(by='RSI').round(2).to_string(index=False))
 
         # Plot the first candidate
         top_pick = results_df.sort_values(by='RSI').iloc[0]['Ticker']
