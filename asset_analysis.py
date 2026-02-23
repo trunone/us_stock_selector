@@ -6,6 +6,7 @@ import io
 import os
 import sys
 import re
+import argparse
 from bs4 import BeautifulSoup
 from textblob import TextBlob
 
@@ -250,43 +251,73 @@ def process_single_df(df, ticker):
     return None
 
 def main():
-    print("Select ticker source:")
-    print("1. All US Tickers (NASDAQ Trader)")
-    print("2. Select by Industry (StockAnalysis.com)")
-
-    choice = input("Enter choice (1 or 2): ").strip()
+    parser = argparse.ArgumentParser(description="US Asset Analysis Tool")
+    parser.add_argument("--all", action="store_true", help="Process all US tickers")
+    parser.add_argument("--industry", type=str, help="Process a specific industry (by name or slug)")
+    args = parser.parse_args()
 
     all_tickers = []
 
-    if choice == '1':
+    if args.all:
         print("Fetching all US asset tickers...")
         all_tickers = get_all_tickers()
-    elif choice == '2':
-        print("Fetching industries...")
+    elif args.industry:
+        print("Fetching industries to validate selection...")
         industries = get_industries()
         if not industries:
-            print("No industries found.")
+            print("Failed to fetch industries.")
             return
 
-        print("\nAvailable Industries:")
-        for i, ind in enumerate(industries):
-            print(f"{i + 1}. {ind['name']}")
+        target = args.industry.lower()
+        selected = None
+        for ind in industries:
+            if ind['url'] == target or ind['name'].lower() == target:
+                selected = ind
+                break
 
-        try:
-            ind_choice = int(input("\nEnter industry number: "))
-            if 1 <= ind_choice <= len(industries):
-                selected = industries[ind_choice - 1]
-                print(f"Fetching tickers for {selected['name']}...")
-                all_tickers = get_tickers_by_industry(selected['url'])
-            else:
-                print("Invalid selection.")
-                return
-        except ValueError:
-            print("Invalid input.")
+        if selected:
+            print(f"Fetching tickers for {selected['name']} ({selected['url']})...")
+            all_tickers = get_tickers_by_industry(selected['url'])
+        else:
+            print(f"Industry '{args.industry}' not found.")
             return
     else:
-        print("Invalid choice.")
-        return
+        # Interactive Mode
+        print("Select ticker source:")
+        print("1. All US Tickers (NASDAQ Trader)")
+        print("2. Select by Industry (StockAnalysis.com)")
+
+        choice = input("Enter choice (1 or 2): ").strip()
+
+        if choice == '1':
+            print("Fetching all US asset tickers...")
+            all_tickers = get_all_tickers()
+        elif choice == '2':
+            print("Fetching industries...")
+            industries = get_industries()
+            if not industries:
+                print("No industries found.")
+                return
+
+            print("\nAvailable Industries:")
+            for i, ind in enumerate(industries):
+                print(f"{i + 1}. {ind['name']}")
+
+            try:
+                ind_choice = int(input("\nEnter industry number: "))
+                if 1 <= ind_choice <= len(industries):
+                    selected = industries[ind_choice - 1]
+                    print(f"Fetching tickers for {selected['name']}...")
+                    all_tickers = get_tickers_by_industry(selected['url'])
+                else:
+                    print("Invalid selection.")
+                    return
+            except ValueError:
+                print("Invalid input.")
+                return
+        else:
+            print("Invalid choice.")
+            return
 
     if not all_tickers:
         print("Failed to get tickers or no tickers found. Exiting.")
