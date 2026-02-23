@@ -10,8 +10,8 @@ from textblob import TextBlob
 def get_news_sentiment(ticker):
     """Fetches news and calculates average sentiment polarity."""
     try:
-        stock = yf.Ticker(ticker)
-        news = stock.news
+        asset = yf.Ticker(ticker)
+        news = asset.news
         if not news:
             return 0, 0
 
@@ -68,7 +68,7 @@ def calculate_rsi(data, window=14):
     return rsi
 
 def analyze_batch(tickers):
-    """Fetches data and calculates indicators for a batch of stocks."""
+    """Fetches data and calculates indicators for a batch of assets."""
     if not tickers:
         return []
 
@@ -126,7 +126,7 @@ def analyze_batch(tickers):
         return []
 
 def process_single_df(df, ticker):
-    """Helper to process a single stock dataframe."""
+    """Helper to process a single asset dataframe."""
     if df.empty:
         return None
 
@@ -169,7 +169,7 @@ def process_single_df(df, ticker):
     return None
 
 def main():
-    print("Fetching all US stock tickers...")
+    print("Fetching all US asset tickers...")
     all_tickers = get_all_tickers()
 
     if not all_tickers:
@@ -187,25 +187,25 @@ def main():
 
     print(f"Processing {len(tickers_to_process)} tickers in batches of {BATCH_SIZE}...")
 
-    selected_stocks = []
+    selected_assets = []
 
     for i in range(0, len(tickers_to_process), BATCH_SIZE):
         batch = tickers_to_process[i:i + BATCH_SIZE]
         print(f"Processing batch {i // BATCH_SIZE + 1} ({len(batch)} tickers)...", flush=True)
         results = analyze_batch(batch)
-        selected_stocks.extend(results)
+        selected_assets.extend(results)
 
     print("\nAnalysis complete.")
 
-    if selected_stocks:
-        print(f"Found {len(selected_stocks)} technical candidates. Analyzing news sentiment...")
-        for stock in selected_stocks:
-            ticker = stock['Ticker']
+    if selected_assets:
+        print(f"Found {len(selected_assets)} technical candidates. Analyzing news sentiment...")
+        for asset in selected_assets:
+            ticker = asset['Ticker']
             sentiment, count = get_news_sentiment(ticker)
-            stock['News Sentiment'] = sentiment
-            stock['News Count'] = count
+            asset['News Sentiment'] = sentiment
+            asset['News Count'] = count
 
-    results_df = pd.DataFrame(selected_stocks)
+    results_df = pd.DataFrame(selected_assets)
 
     if not results_df.empty:
         print("\nPotential Investment Candidates (Sorted by RSI):")
@@ -243,13 +243,13 @@ def main():
             plt.legend()
             plt.grid(True)
 
-            plt.savefig('top_stock_chart.png')
-            print("Chart saved as 'top_stock_chart.png'")
+            plt.savefig('top_asset_chart.png')
+            print("Chart saved as 'top_asset_chart.png'")
         except Exception as e:
             print(f"Error generating chart: {e}")
 
     else:
-        print("No stocks matched the criteria in this subset.")
+        print("No assets matched the criteria in this subset.")
 
 if __name__ == "__main__":
     main()
