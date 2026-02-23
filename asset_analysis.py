@@ -5,6 +5,9 @@ import requests
 import io
 import os
 import sys
+import re
+import argparse
+from bs4 import BeautifulSoup
 from textblob import TextBlob
 
 def get_news_sentiment(ticker):
@@ -37,6 +40,85 @@ def get_news_sentiment(ticker):
     except Exception as e:
         print(f"Error fetching news for {ticker}: {e}")
         return 0, 0
+
+def get_industries():
+    """Fetches a list of industries from StockAnalysis.com."""
+    url = "https://stockanalysis.com/stocks/industry/"
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            print(f"Failed to fetch industries: {response.status_code}")
+            return []
+
+        # Extract industries using regex from the embedded script
+        # The data is in a structure like: industry_name:"Name",url:"slug"
+        matches = re.findall(r'industry_name:"([^"]+)",url:"([^"]+)"', response.text)
+
+        industries = []
+        seen_urls = set()
+
+        for name, slug in matches:
+            if slug not in seen_urls:
+                industries.append({'name': name, 'url': slug})
+                seen_urls.add(slug)
+
+        industries.sort(key=lambda x: x['name'])
+        return industries
+
+    except Exception as e:
+        print(f"Error fetching industries: {e}")
+        return []
+
+def get_tickers_by_industry(industry_url):
+    """Fetches tickers for a specific industry from StockAnalysis.com."""
+    url = f"https://stockanalysis.com/stocks/industry/{industry_url}/"
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            print(f"Failed to fetch tickers for {industry_url}: {response.status_code}")
+            return []
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        tickers = []
+
+        # Reserved words to exclude if they appear as links
+        reserved = {
+            'industry', 'sector', 'stocks', 'screener', 'compare',
+            'etf', 'ipo', 'news', 'lists', 'analysts', 'about',
+            'contact', 'login', 'pro', 'subscribe', 'blog', 'privacy-policy',
+            'terms-of-use', 'sitemap', 'faq'
+        }
+
+        for link in soup.find_all('a', href=True):
+            href = link['href']
+            # Ticker links are usually /stocks/ticker/
+            if href.startswith('/stocks/') and href.count('/') >= 3:
+                parts = href.strip('/').split('/')
+                if len(parts) >= 2:
+                    slug = parts[1]
+
+                    if slug in reserved:
+                        continue
+
+                    text = link.text.strip()
+
+                    # Heuristic: The link text should match the slug (case-insensitive)
+                    # or allow for dot/dash difference (e.g. BRK-B vs BRK.B)
+                    if (slug.lower() == text.lower() or
+                        slug.lower() == text.lower().replace('.', '-')):
+
+                        # Convert dot to dash for yfinance compatibility if needed
+                        ticker = text.upper().replace('.', '-')
+                        if ticker not in tickers:
+                            tickers.append(ticker)
+
+        return tickers
+
+    except Exception as e:
+        print(f"Error fetching tickers for {industry_url}: {e}")
+        return []
 
 def get_all_tickers():
     """Fetches a comprehensive list of US tickers from NASDAQ Trader."""
@@ -169,11 +251,76 @@ def process_single_df(df, ticker):
     return None
 
 def main():
-    print("Fetching all US asset tickers...")
-    all_tickers = get_all_tickers()
+    parser = argparse.ArgumentParser(description="US Asset Analysis Tool")
+    parser.add_argument("--all", action="store_true", help="Process all US tickers")
+    parser.add_argument("--industry", type=str, help="Process a specific industry (by name or slug)")
+    args = parser.parse_args()
+
+    all_tickers = []
+
+    if args.all:
+        print("Fetching all US asset tickers...")
+        all_tickers = get_all_tickers()
+    elif args.industry:
+        print("Fetching industries to validate selection...")
+        industries = get_industries()
+        if not industries:
+            print("Failed to fetch industries.")
+            return
+
+        target = args.industry.lower()
+        selected = None
+        for ind in industries:
+            if ind['url'] == target or ind['name'].lower() == target:
+                selected = ind
+                break
+
+        if selected:
+            print(f"Fetching tickers for {selected['name']} ({selected['url']})...")
+            all_tickers = get_tickers_by_industry(selected['url'])
+        else:
+            print(f"Industry '{args.industry}' not found.")
+            return
+    else:
+        # Interactive Mode
+        print("Select ticker source:")
+        print("1. All US Tickers (NASDAQ Trader)")
+        print("2. Select by Industry (StockAnalysis.com)")
+
+        choice = input("Enter choice (1 or 2): ").strip()
+
+        if choice == '1':
+            print("Fetching all US asset tickers...")
+            all_tickers = get_all_tickers()
+        elif choice == '2':
+            print("Fetching industries...")
+            industries = get_industries()
+            if not industries:
+                print("No industries found.")
+                return
+
+            print("\nAvailable Industries:")
+            for i, ind in enumerate(industries):
+                print(f"{i + 1}. {ind['name']}")
+
+            try:
+                ind_choice = int(input("\nEnter industry number: "))
+                if 1 <= ind_choice <= len(industries):
+                    selected = industries[ind_choice - 1]
+                    print(f"Fetching tickers for {selected['name']}...")
+                    all_tickers = get_tickers_by_industry(selected['url'])
+                else:
+                    print("Invalid selection.")
+                    return
+            except ValueError:
+                print("Invalid input.")
+                return
+        else:
+            print("Invalid choice.")
+            return
 
     if not all_tickers:
-        print("Failed to get tickers. Exiting.")
+        print("Failed to get tickers or no tickers found. Exiting.")
         return
 
     print(f"Found {len(all_tickers)} tickers.")
