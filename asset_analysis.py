@@ -2,9 +2,6 @@ import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 import requests
-import io
-import os
-import sys
 import re
 import argparse
 from bs4 import BeautifulSoup
@@ -124,7 +121,7 @@ def get_all_tickers():
     """Fetches a comprehensive list of US tickers from NASDAQ Trader."""
     url = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqtraded.txt"
     try:
-        df = pd.read_csv(url, sep='|')
+        df = pd.read_csv(url, sep='|', skipfooter=1, engine='python')
         # Filter out test issues and the file creation time footer
         df = df[df['Test Issue'] == 'N']
         if 'Symbol' in df.columns:
@@ -197,8 +194,8 @@ def analyze_batch(tickers):
                 res = process_single_df(df, ticker)
                 if res:
                     results.append(res)
-            except Exception as e:
-                # print(f"Error processing {ticker}: {e}")
+            except Exception:
+                # ignore single ticker processing errors
                 continue
 
         return results
@@ -326,19 +323,19 @@ def main():
     print(f"Found {len(all_tickers)} tickers.")
 
     # Batch processing
-    BATCH_SIZE = 100
+    batch_size = 100
     # For demonstration/testing, limit total processed. Remove slice for full run.
-    LIMIT = 500
-    tickers_to_process = all_tickers[:LIMIT]
+    limit = 500
+    tickers_to_process = all_tickers[:limit]
     # tickers_to_process = all_tickers # Uncomment for full run
 
-    print(f"Processing {len(tickers_to_process)} tickers in batches of {BATCH_SIZE}...")
+    print(f"Processing {len(tickers_to_process)} tickers in batches of {batch_size}...")
 
     selected_assets = []
 
-    for i in range(0, len(tickers_to_process), BATCH_SIZE):
-        batch = tickers_to_process[i:i + BATCH_SIZE]
-        print(f"Processing batch {i // BATCH_SIZE + 1} ({len(batch)} tickers)...", flush=True)
+    for i in range(0, len(tickers_to_process), batch_size):
+        batch = tickers_to_process[i:i + batch_size]
+        print(f"Processing batch {i // batch_size + 1} ({len(batch)} tickers)...", flush=True)
         results = analyze_batch(batch)
         selected_assets.extend(results)
 
@@ -370,10 +367,10 @@ def main():
             # Re-download single for plotting to be safe/simple
             df = yf.download(top_pick, period="2y", progress=False)
             if isinstance(df.columns, pd.MultiIndex):
-                 try:
-                     close = df['Close'][top_pick]
-                 except KeyError:
-                     close = df['Close']
+                try:
+                    close = df['Close'][top_pick]
+                except KeyError:
+                    close = df['Close']
             else:
                 close = df['Close']
 
